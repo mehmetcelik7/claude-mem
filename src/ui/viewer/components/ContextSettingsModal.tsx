@@ -331,14 +331,14 @@ export function ContextSettingsModal({
             >
               <FormField
                 label="AI Provider"
-                tooltip="Choose between Claude (via Agent SDK) or Gemini (via REST API)"
+                tooltip="Choose between Claude (via Agent SDK), Gemini (CLI subscription or REST API key), or OpenRouter"
               >
                 <select
                   value={formState.CLAUDE_MEM_PROVIDER || 'claude'}
                   onChange={(e) => updateSetting('CLAUDE_MEM_PROVIDER', e.target.value)}
                 >
                   <option value="claude">Claude (uses your Claude account)</option>
-                  <option value="gemini">Gemini (uses API key)</option>
+                  <option value="gemini">Gemini (CLI subscription or API key)</option>
                   <option value="openrouter">OpenRouter (multi-model)</option>
                 </select>
               </FormField>
@@ -359,43 +359,86 @@ export function ContextSettingsModal({
                 </FormField>
               )}
 
-              {formState.CLAUDE_MEM_PROVIDER === 'gemini' && (
-                <>
-                  <FormField
-                    label="Gemini API Key"
-                    tooltip="Your Google AI Studio API key (or set GEMINI_API_KEY env var)"
-                  >
-                    <input
-                      type="password"
-                      value={formState.CLAUDE_MEM_GEMINI_API_KEY || ''}
-                      onChange={(e) => updateSetting('CLAUDE_MEM_GEMINI_API_KEY', e.target.value)}
-                      placeholder="Enter Gemini API key..."
-                    />
-                  </FormField>
-                  <FormField
-                    label="Gemini Model"
-                    tooltip="Gemini model used for generating observations"
-                  >
-                    <select
-                      value={formState.CLAUDE_MEM_GEMINI_MODEL || 'gemini-2.5-flash-lite'}
-                      onChange={(e) => updateSetting('CLAUDE_MEM_GEMINI_MODEL', e.target.value)}
+              {formState.CLAUDE_MEM_PROVIDER === 'gemini' && (() => {
+                const geminiAuth = (formState.CLAUDE_MEM_GEMINI_AUTH_METHOD || 'api').toLowerCase();
+                const isCli = geminiAuth === 'cli';
+                // Models exposed by the local Gemini CLI (paid OAuth tier).
+                // The REST/API path can't reach the *-preview entries.
+                const cliModels = [
+                  { value: 'gemini-3.1-pro-preview', label: 'gemini-3.1-pro-preview' },
+                  { value: 'gemini-3-flash-preview', label: 'gemini-3-flash-preview' },
+                  { value: 'gemini-3.1-flash-lite-preview', label: 'gemini-3.1-flash-lite-preview' },
+                  { value: 'gemini-2.5-pro', label: 'gemini-2.5-pro' },
+                  { value: 'gemini-2.5-flash', label: 'gemini-2.5-flash' },
+                  { value: 'gemini-2.5-flash-lite', label: 'gemini-2.5-flash-lite' },
+                ];
+                const apiModels = [
+                  { value: 'gemini-2.5-flash-lite', label: 'gemini-2.5-flash-lite (10 RPM free)' },
+                  { value: 'gemini-2.5-flash', label: 'gemini-2.5-flash (5 RPM free)' },
+                  { value: 'gemini-3-flash-preview', label: 'gemini-3-flash-preview (5 RPM free)' },
+                ];
+                const modelOptions = isCli ? cliModels : apiModels;
+                const defaultModel = isCli ? 'gemini-2.5-flash' : 'gemini-2.5-flash-lite';
+                return (
+                  <>
+                    <FormField
+                      label="Gemini Auth Method"
+                      tooltip="Local CLI subscription uses your paid Gemini plan via the gemini binary's OAuth (no API key, preview models available). API Key uses Google AI Studio's free tier."
                     >
-                      <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (10 RPM free)</option>
-                      <option value="gemini-2.5-flash">gemini-2.5-flash (5 RPM free)</option>
-                      <option value="gemini-3-flash-preview">gemini-3-flash-preview (5 RPM free)</option>
-                    </select>
-                  </FormField>
-                  <div className="toggle-group" style={{ marginTop: '8px' }}>
-                    <ToggleSwitch
-                      id="gemini-rate-limiting"
-                      label="Rate Limiting"
-                      description="Enable for free tier (10-30 RPM). Disable if you have billing set up (1000+ RPM)."
-                      checked={formState.CLAUDE_MEM_GEMINI_RATE_LIMITING_ENABLED === 'true'}
-                      onChange={(checked) => updateSetting('CLAUDE_MEM_GEMINI_RATE_LIMITING_ENABLED', checked ? 'true' : 'false')}
-                    />
-                  </div>
-                </>
-              )}
+                      <select
+                        value={geminiAuth}
+                        onChange={(e) => updateSetting('CLAUDE_MEM_GEMINI_AUTH_METHOD', e.target.value)}
+                      >
+                        <option value="cli">Local CLI subscription (uses your Gemini account)</option>
+                        <option value="api">API Key (Google AI Studio free tier)</option>
+                      </select>
+                    </FormField>
+
+                    {!isCli && (
+                      <FormField
+                        label="Gemini API Key"
+                        tooltip="Your Google AI Studio API key (or set GEMINI_API_KEY env var)"
+                      >
+                        <input
+                          type="password"
+                          value={formState.CLAUDE_MEM_GEMINI_API_KEY || ''}
+                          onChange={(e) => updateSetting('CLAUDE_MEM_GEMINI_API_KEY', e.target.value)}
+                          placeholder="Enter Gemini API key..."
+                        />
+                      </FormField>
+                    )}
+
+                    <FormField
+                      label="Gemini Model"
+                      tooltip={isCli
+                        ? 'Model used for generating observations. CLI mode exposes preview models gated behind your paid plan.'
+                        : 'Model used for generating observations. API mode is limited to the AI Studio free tier whitelist.'
+                      }
+                    >
+                      <select
+                        value={formState.CLAUDE_MEM_GEMINI_MODEL || defaultModel}
+                        onChange={(e) => updateSetting('CLAUDE_MEM_GEMINI_MODEL', e.target.value)}
+                      >
+                        {modelOptions.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </FormField>
+
+                    {!isCli && (
+                      <div className="toggle-group" style={{ marginTop: '8px' }}>
+                        <ToggleSwitch
+                          id="gemini-rate-limiting"
+                          label="Rate Limiting"
+                          description="Enable for free tier (10-30 RPM). Disable if you have billing set up (1000+ RPM)."
+                          checked={formState.CLAUDE_MEM_GEMINI_RATE_LIMITING_ENABLED === 'true'}
+                          onChange={(checked) => updateSetting('CLAUDE_MEM_GEMINI_RATE_LIMITING_ENABLED', checked ? 'true' : 'false')}
+                        />
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
 
               {formState.CLAUDE_MEM_PROVIDER === 'openrouter' && (
                 <>
