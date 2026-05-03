@@ -490,12 +490,30 @@ export class GeminiProvider {
       // headless prompt that exits with code 55 outside ~/.gemini/trustedFolders.
       // OAuth creds are file-based (~/.gemini/oauth_creds.json), so we don't
       // need to forward credentials through env.
+      const subprocessEnv: Record<string, string> = {
+        ...buildIsolatedEnv(false),
+        GEMINI_CLI_TRUST_WORKSPACE: 'true',
+      };
+      // Strip Google Cloud / Gemini env that would force the CLI off OAuth-personal.
+      // If GOOGLE_CLOUD_PROJECT is set, the CLI takes the Cloud Code Assist path
+      // (cloudaicompanion.companions.generateChat) which 403s for OAuth-personal
+      // users that aren't members of that GCP project. We want the CLI to use the
+      // user's paid OAuth entitlement directly via ~/.gemini/oauth_creds.json,
+      // which only works when these env vars are absent.
+      // GEMINI_API_KEY would similarly bypass OAuth and route through AI Studio's
+      // free-tier quota.
+      for (const k of [
+        'GOOGLE_CLOUD_PROJECT',
+        'GEMINI_API_KEY',
+        'GOOGLE_API_KEY',
+        'GOOGLE_GENAI_USE_VERTEXAI',
+        'GOOGLE_APPLICATION_CREDENTIALS',
+      ]) {
+        delete subprocessEnv[k];
+      }
       const child = spawn(geminiPath, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: {
-          ...buildIsolatedEnv(false),
-          GEMINI_CLI_TRUST_WORKSPACE: 'true',
-        },
+        env: subprocessEnv,
       });
 
       const stdoutChunks: Buffer[] = [];
