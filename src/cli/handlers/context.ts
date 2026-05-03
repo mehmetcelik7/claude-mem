@@ -12,6 +12,19 @@ import { loadFromFileOnce } from '../../shared/hook-settings.js';
 
 export const contextHandler: EventHandler = {
   async execute(input: NormalizedHookInput): Promise<HookResult> {
+    // Internal subprocesses (e.g. the gemini summarizer the worker spawns) must
+    // never receive the recent-context blob: it inflates a single-turn prompt
+    // from ~100 tokens to ~15k+, leaks the systemMessage banner into stdout
+    // ahead of the JSON payload, and confuses the parser. The provider already
+    // sets CLAUDE_MEM_INTERNAL=1 on the spawn (see GeminiProvider.queryGeminiCli)
+    // and shouldTrackProject() honors the same flag.
+    if (process.env.CLAUDE_MEM_INTERNAL === '1') {
+      return {
+        hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: '' },
+        exitCode: HOOK_EXIT_CODES.SUCCESS,
+      };
+    }
+
     const cwd = input.cwd ?? process.cwd();
     const context = getProjectContext(cwd);
     const port = getWorkerPort();
