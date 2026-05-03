@@ -36,7 +36,13 @@ const HOOK_TIMEOUT_MS = 10000;
 const GEMINI_EVENT_TO_INTERNAL_EVENT: Record<string, string> = {
   'SessionStart': 'context',
   'BeforeAgent': 'session-init',
-  'AfterAgent': 'observation',
+  // AfterAgent fires once per assistant turn with prompt_response holding the
+  // model's reply; it's the natural Stop-equivalent on the Gemini CLI side.
+  // The gemini-cli adapter forwards prompt_response as input.lastAssistantMessage
+  // so summarize can run without a transcript file. Routing it through
+  // observation produced fake GeminiProvider tool rows that the parser
+  // couldn't validate, jamming the queue.
+  'AfterAgent': 'summarize',
   'BeforeTool': 'observation',
   'AfterTool': 'observation',
   'PreCompress': 'summarize',

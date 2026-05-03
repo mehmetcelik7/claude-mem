@@ -23,11 +23,19 @@ export const geminiCliAdapter: PlatformAdapter = {
     let toolName: string | undefined = r.tool_name;
     let toolInput: unknown = r.tool_input;
     let toolResponse: unknown = r.tool_response;
+    let lastAssistantMessage: string | undefined;
 
+    // AfterAgent fires once per assistant turn with prompt_response holding the
+    // model's reply. Earlier we synthesized a fake `GeminiProvider` tool from
+    // it and routed the event into the observation handler; that path
+    // produced "tool calls" whose response was prose, the parser rejected
+    // them, and the pseudo-tool rows clogged the queue. Now we hand the
+    // assistant message off to the summarize handler instead — same role
+    // PreCompress plays, but at every turn boundary so single-message
+    // sessions still get summarized. The installer maps AfterAgent →
+    // summarize accordingly.
     if (hookEventName === 'AfterAgent' && r.prompt_response) {
-      toolName = toolName ?? 'GeminiProvider';
-      toolInput = toolInput ?? { prompt: r.prompt };
-      toolResponse = toolResponse ?? { response: r.prompt_response };
+      lastAssistantMessage = String(r.prompt_response);
     }
 
     if (hookEventName === 'BeforeTool' && toolName && !toolResponse) {
@@ -62,6 +70,7 @@ export const geminiCliAdapter: PlatformAdapter = {
       toolResponse,
       transcriptPath: r.transcript_path,
       metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+      lastAssistantMessage,
     };
   },
 

@@ -10,8 +10,12 @@ export interface NormalizedHookInput {
   filePath?: string;   
   edits?: unknown[];   
   metadata?: Record<string, unknown>;
-  agentId?: string;      
-  agentType?: string;    
+  agentId?: string;
+  agentType?: string;
+  // Pre-extracted last assistant message — set by adapters that already have
+  // it inline (e.g. Gemini CLI's AfterAgent.prompt_response). Used as a
+  // fallback by the summarize handler when transcriptPath isn't available.
+  lastAssistantMessage?: string;
 }
 
 export interface HookResult {

@@ -29,17 +29,25 @@ export const summarizeHandler: EventHandler = {
       logger.warn('HOOK', 'summarize: No sessionId provided, skipping');
       return { continue: true, suppressOutput: true, exitCode: HOOK_EXIT_CODES.SUCCESS };
     }
-    if (!transcriptPath) {
-      logger.debug('HOOK', `No transcriptPath in Stop hook input for session ${sessionId} - skipping summary`);
-      return { continue: true, suppressOutput: true, exitCode: HOOK_EXIT_CODES.SUCCESS };
-    }
 
+    // Two ways to source the last assistant message:
+    // 1) Adapter pre-extracted it from the hook payload (e.g. Gemini CLI's
+    //    AfterAgent.prompt_response — single-turn, no transcript file).
+    // 2) Read it out of the Claude Code transcript jsonl when transcriptPath
+    //    is present (the Stop hook path).
     let lastAssistantMessage = '';
-    try {
-      lastAssistantMessage = extractLastMessage(transcriptPath, 'assistant', true);
-      lastAssistantMessage = stripMemoryTagsFromPrompt(lastAssistantMessage);
-    } catch (err) {
-      logger.warn('HOOK', `Stop hook: failed to extract last assistant message for session ${sessionId}: ${err instanceof Error ? err.message : err}`);
+    if (input.lastAssistantMessage && input.lastAssistantMessage.trim()) {
+      lastAssistantMessage = stripMemoryTagsFromPrompt(input.lastAssistantMessage);
+    } else if (transcriptPath) {
+      try {
+        lastAssistantMessage = extractLastMessage(transcriptPath, 'assistant', true);
+        lastAssistantMessage = stripMemoryTagsFromPrompt(lastAssistantMessage);
+      } catch (err) {
+        logger.warn('HOOK', `Stop hook: failed to extract last assistant message for session ${sessionId}: ${err instanceof Error ? err.message : err}`);
+        return { continue: true, suppressOutput: true, exitCode: HOOK_EXIT_CODES.SUCCESS };
+      }
+    } else {
+      logger.debug('HOOK', `No transcriptPath and no inline lastAssistantMessage for session ${sessionId} - skipping summary`);
       return { continue: true, suppressOutput: true, exitCode: HOOK_EXIT_CODES.SUCCESS };
     }
 

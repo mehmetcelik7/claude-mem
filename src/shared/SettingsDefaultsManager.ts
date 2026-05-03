@@ -85,7 +85,7 @@ export class SettingsDefaultsManager {
     CLAUDE_MEM_GEMINI_MAX_TOKENS: '100000',  // Max estimated tokens (~100k safety limit)
     CLAUDE_MEM_GEMINI_AUTH_METHOD: 'api',  // 'api' = REST + API key (default, preserves existing behavior); 'cli' = subprocess gemini -p ... -o json (uses paid OAuth entitlement)
     CLAUDE_MEM_GEMINI_PATH: '',  // Empty = auto-detect via `which gemini`
-    CLAUDE_MEM_GEMINI_CLI_TIMEOUT_MS: '120000',  // 2 min default per CLI invocation
+    CLAUDE_MEM_GEMINI_CLI_TIMEOUT_MS: '300000',  // 5 min default per CLI invocation — multi-turn histories + preview models can exceed 2 min
     CLAUDE_MEM_OPENROUTER_API_KEY: '',  // Empty by default, can be set via UI or env
     CLAUDE_MEM_OPENROUTER_MODEL: 'xiaomi/mimo-v2-flash:free',  // Default OpenRouter model (free tier)
     CLAUDE_MEM_OPENROUTER_SITE_URL: '',  // Optional: for OpenRouter analytics
