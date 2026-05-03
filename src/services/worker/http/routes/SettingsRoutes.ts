@@ -93,6 +93,9 @@ export class SettingsRoutes extends BaseRouteHandler {
       'CLAUDE_MEM_GEMINI_RATE_LIMITING_ENABLED',
       'CLAUDE_MEM_GEMINI_MAX_CONTEXT_MESSAGES',
       'CLAUDE_MEM_GEMINI_MAX_TOKENS',
+      'CLAUDE_MEM_GEMINI_AUTH_METHOD',
+      'CLAUDE_MEM_GEMINI_PATH',
+      'CLAUDE_MEM_GEMINI_CLI_TIMEOUT_MS',
       'CLAUDE_MEM_OPENROUTER_API_KEY',
       'CLAUDE_MEM_OPENROUTER_MODEL',
       'CLAUDE_MEM_OPENROUTER_SITE_URL',
@@ -196,9 +199,27 @@ export class SettingsRoutes extends BaseRouteHandler {
     }
 
     if (settings.CLAUDE_MEM_GEMINI_MODEL) {
-      const validGeminiModels = ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-3-flash-preview'];
+      const authMethod = (settings.CLAUDE_MEM_GEMINI_AUTH_METHOD || 'api').toString().toLowerCase();
+      const apiModels = ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-3-flash-preview'];
+      const cliModels = [
+        'gemini-3.1-pro-preview',
+        'gemini-3-flash-preview',
+        'gemini-3.1-flash-lite-preview',
+        'gemini-2.5-pro',
+        'gemini-2.5-flash',
+        'gemini-2.5-flash-lite',
+      ];
+      const validGeminiModels = authMethod === 'cli' ? cliModels : apiModels;
       if (!validGeminiModels.includes(settings.CLAUDE_MEM_GEMINI_MODEL)) {
-        return { valid: false, error: 'CLAUDE_MEM_GEMINI_MODEL must be one of: gemini-2.5-flash-lite, gemini-2.5-flash, gemini-3-flash-preview' };
+        return { valid: false, error: `CLAUDE_MEM_GEMINI_MODEL must be one of (${authMethod} mode): ${validGeminiModels.join(', ')}` };
+      }
+    }
+
+    if (settings.CLAUDE_MEM_GEMINI_AUTH_METHOD) {
+      const validAuth = ['api', 'cli'];
+      const v = settings.CLAUDE_MEM_GEMINI_AUTH_METHOD.toString().toLowerCase();
+      if (!validAuth.includes(v)) {
+        return { valid: false, error: 'CLAUDE_MEM_GEMINI_AUTH_METHOD must be "api" or "cli"' };
       }
     }
 
